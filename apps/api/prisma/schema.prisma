@@ -1,0 +1,535 @@
+// FiscalizApp — schema do banco (PostgreSQL)
+// Documentação: docs/MODELO-DE-DADOS.md
+//
+// Convenções:
+// - Valores monetários em CENTAVOS (BigInt) para evitar erro de ponto flutuante.
+// - Todo registro coletado aponta para uma `Fonte` (proveniência).
+// - `chaveOrigem` = identificador do registro na fonte; com o órgão, garante
+//   upsert idempotente (recoletar não duplica).
+// - `verificacao` controla o que a API pública exibe.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum TipoOrgao {
+  PREFEITURA
+  CAMARA
+}
+
+enum PlataformaPortal {
+  ATENDE_NET // IPM Sistemas
+  BETHA
+  ELOTECH
+  FIORILLI
+  OUTRA
+}
+
+enum Cargo {
+  PREFEITO
+  VICE_PREFEITO
+  SECRETARIO
+  VEREADOR
+}
+
+enum SituacaoMandato {
+  TITULAR
+  SUPLENTE_EM_EXERCICIO
+  LICENCIADO
+  AFASTADO
+  ENCERRADO
+}
+
+enum FuncaoMesaDiretora {
+  PRESIDENTE
+  VICE_PRESIDENTE
+  PRIMEIRO_SECRETARIO
+  SEGUNDO_SECRETARIO
+}
+
+enum TipoFolha {
+  MENSAL
+  DECIMO_TERCEIRO
+  FERIAS
+  COMPLEMENTAR
+  RESCISAO
+}
+
+enum NaturezaRubrica {
+  PROVENTO
+  DESCONTO
+}
+
+enum FaseDespesa {
+  EMPENHO
+  LIQUIDACAO
+  PAGAMENTO
+}
+
+enum TipoPessoaFornecedor {
+  FISICA
+  JURIDICA
+}
+
+enum StatusVerificacao {
+  NAO_VERIFICADO // ex.: dado semente vindo de rede social; não aparece na API pública
+  VERIFICADO // conferido com fonte oficial
+  DIVERGENTE // fontes oficiais discordam; exibido com aviso
+}
+
+enum TipoFonte {
+  PORTAL_TRANSPARENCIA
+  TCE
+  TSE
+  SICONFI
+  PNCP
+  IBGE
+  DIARIO_OFICIAL
+  LEGISLACAO
+  PEDIDO_LAI
+  REDE_SOCIAL // nunca usada como fonte pública
+  MANUAL
+}
+
+enum StatusExecucao {
+  EM_ANDAMENTO
+  SUCESSO
+  SUCESSO_SEM_REGISTROS // alerta: possível mudança de layout no portal
+  FALHA
+}
+
+enum SituacaoLimite {
+  DENTRO
+  PROXIMO // acima do limite prudencial / alerta
+  ACIMA
+  SEM_DADOS
+}
+
+enum StatusReporte {
+  ABERTO
+  EM_ANALISE
+  CORRIGIDO
+  DESCARTADO
+}
+
+// ───────────────────────── Território e órgãos ─────────────────────────
+
+model Municipio {
+  id           Int     @id @default(autoincrement())
+  codigoIbge   String  @unique @db.Char(7)
+  nome         String
+  uf           String  @db.Char(2)
+  slug         String  @unique // "campo-largo-pr"
+  populacao    Int?
+  populacaoAno Int?
+  ativo        Boolean @default(false) // exibido no app
+
+  orgaos       Orgao[]
+  verificacoes VerificacaoLimite[]
+  financas     FinancaMunicipal[]
+
+  @@map("municipios")
+}
+
+model Orgao {
+  id          Int               @id @default(autoincrement())
+  municipioId Int
+  tipo        TipoOrgao
+  nome        String
+  cnpj        String?           @unique @db.Char(14)
+  plataforma  PlataformaPortal?
+  portalUrl   String?
+  // Para ATENDE_NET: subdomínio de <subdominio>.atende.net
+  subdominio  String?
+
+  municipio    Municipio        @relation(fields: [municipioId], references: [id])
+  mandatos     Mandato[]
+  remuneracoes Remuneracao[]
+  diarias      Diaria[]
+  despesas     Despesa[]
+  contratos    Contrato[]
+  execucoes    ExecucaoColeta[]
+
+  @@unique([municipioId, tipo])
+  @@map("orgaos")
+}
+
+// ───────────────────────────── Pessoas ─────────────────────────────
+
+model Partido {
+  id     Int     @id @default(autoincrement())
+  sigla  String  @unique // "PDT", "UNIÃO", "SOLIDARIEDADE"...
+  nome   String?
+  numero Int?    @unique
+
+  mandatos Mandato[]
+
+  @@map("partidos")
+}
+
+model Pessoa {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique // "alexandre-guimaraes"
+  nomeCivil      String? // vem do TSE
+  nomeUrna       String // "Polaco Preto", "Sensei Clóvis"
+  // SHA-256 do CPF + segredo da aplicação (pepper). O CPF nunca é armazenado.
+  cpfHash        String?  @unique
+  // Sequencial do candidato no TSE (SQ_CANDIDATO), por eleição, ajuda no matching
+  tseSequenciais String[]
+  fotoUrl        String?
+
+  mandatos         Mandato[]
+  bens             BemDeclarado[]
+  receitasCampanha ReceitaCampanha[]
+
+  @@index([nomeUrna])
+  @@map("pessoas")
+}
+
+model Mandato {
+  id             Int               @id @default(autoincrement())
+  pessoaId       Int
+  orgaoId        Int
+  partidoId      Int?
+  cargo          Cargo
+  // Para secretários: nome da secretaria
+  descricaoCargo String?
+  legislatura    String? // "2025-2028"
+  inicio         DateTime          @db.Date
+  fim            DateTime?         @db.Date
+  situacao       SituacaoMandato   @default(TITULAR)
+  verificacao    StatusVerificacao @default(NAO_VERIFICADO)
+  fonteId        Int?
+
+  pessoa       Pessoa        @relation(fields: [pessoaId], references: [id])
+  orgao        Orgao         @relation(fields: [orgaoId], references: [id])
+  partido      Partido?      @relation(fields: [partidoId], references: [id])
+  fonte        Fonte?        @relation(fields: [fonteId], references: [id])
+  funcoesMesa  FuncaoMesa[]
+  remuneracoes Remuneracao[]
+  diarias      Diaria[]
+
+  @@unique([pessoaId, orgaoId, cargo, inicio])
+  @@index([orgaoId, cargo])
+  @@map("mandatos")
+}
+
+// A presidência da Câmara muda (normalmente a cada 2 anos), por isso fica
+// separada do mandato.
+model FuncaoMesa {
+  id        Int                @id @default(autoincrement())
+  mandatoId Int
+  funcao    FuncaoMesaDiretora
+  inicio    DateTime           @db.Date
+  fim       DateTime?          @db.Date
+  fonteId   Int?
+
+  mandato Mandato @relation(fields: [mandatoId], references: [id])
+  fonte   Fonte?  @relation(fields: [fonteId], references: [id])
+
+  @@unique([mandatoId, funcao, inicio])
+  @@map("funcoes_mesa")
+}
+
+// ───────────────────────── Remuneração e benefícios ─────────────────────────
+
+model Remuneracao {
+  id                Int               @id @default(autoincrement())
+  orgaoId           Int
+  mandatoId         Int
+  ano               Int
+  mes               Int // 1..12 (competência)
+  tipoFolha         TipoFolha         @default(MENSAL)
+  brutoCentavos     BigInt
+  descontosCentavos BigInt            @default(0)
+  liquidoCentavos   BigInt?
+  verificacao       StatusVerificacao @default(NAO_VERIFICADO)
+  fonteId           Int
+  chaveOrigem       String?
+
+  orgao   Orgao             @relation(fields: [orgaoId], references: [id])
+  mandato Mandato           @relation(fields: [mandatoId], references: [id])
+  fonte   Fonte             @relation(fields: [fonteId], references: [id])
+  itens   RemuneracaoItem[]
+
+  @@unique([mandatoId, ano, mes, tipoFolha])
+  @@index([orgaoId, ano, mes])
+  @@map("remuneracoes")
+}
+
+// Rubricas da folha: subsídio, verba de representação, IRRF, INSS...
+model RemuneracaoItem {
+  id            Int             @id @default(autoincrement())
+  remuneracaoId Int
+  codigo        String?
+  rubrica       String
+  natureza      NaturezaRubrica
+  valorCentavos BigInt
+
+  remuneracao Remuneracao @relation(fields: [remuneracaoId], references: [id], onDelete: Cascade)
+
+  @@index([remuneracaoId])
+  @@map("remuneracao_itens")
+}
+
+model Diaria {
+  id               Int               @id @default(autoincrement())
+  orgaoId          Int
+  // Nulo quando o beneficiário é servidor, não agente político
+  mandatoId        Int?
+  beneficiarioNome String
+  dataInicio       DateTime          @db.Date
+  dataFim          DateTime?         @db.Date
+  destino          String?
+  motivo           String?
+  quantidade       Decimal?          @db.Decimal(6, 2)
+  valorCentavos    BigInt
+  numeroEmpenho    String?
+  verificacao      StatusVerificacao @default(VERIFICADO)
+  fonteId          Int
+  chaveOrigem      String
+
+  orgao   Orgao    @relation(fields: [orgaoId], references: [id])
+  mandato Mandato? @relation(fields: [mandatoId], references: [id])
+  fonte   Fonte    @relation(fields: [fonteId], references: [id])
+
+  @@unique([orgaoId, chaveOrigem])
+  @@index([mandatoId, dataInicio])
+  @@map("diarias")
+}
+
+// ───────────────────────── Despesas e contratos ─────────────────────────
+
+model Fornecedor {
+  id        Int                  @id @default(autoincrement())
+  // CNPJ completo; para pessoa física, o CPF mascarado como publicado no portal
+  documento String               @unique
+  tipo      TipoPessoaFornecedor
+  nome      String
+
+  despesas  Despesa[]
+  contratos Contrato[]
+
+  @@index([nome])
+  @@map("fornecedores")
+}
+
+model Despesa {
+  id            Int         @id @default(autoincrement())
+  orgaoId       Int
+  ano           Int
+  numeroEmpenho String
+  fase          FaseDespesa
+  data          DateTime    @db.Date
+  funcao        String? // classificação funcional: "01 - Legislativa"
+  subfuncao     String?
+  elemento      String? // natureza: "3.3.90.14 - Diárias – Civil"
+  fornecedorId  Int?
+  historico     String?
+  valorCentavos BigInt
+  fonteId       Int
+  chaveOrigem   String
+
+  orgao      Orgao       @relation(fields: [orgaoId], references: [id])
+  fornecedor Fornecedor? @relation(fields: [fornecedorId], references: [id])
+  fonte      Fonte       @relation(fields: [fonteId], references: [id])
+
+  @@unique([orgaoId, chaveOrigem])
+  @@index([orgaoId, ano, fase])
+  @@index([fornecedorId])
+  @@map("despesas")
+}
+
+model Contrato {
+  id            Int       @id @default(autoincrement())
+  orgaoId       Int
+  fornecedorId  Int
+  numero        String
+  objeto        String
+  modalidade    String?
+  valorCentavos BigInt
+  inicio        DateTime? @db.Date
+  fim           DateTime? @db.Date
+  fonteId       Int
+  chaveOrigem   String
+
+  orgao      Orgao      @relation(fields: [orgaoId], references: [id])
+  fornecedor Fornecedor @relation(fields: [fornecedorId], references: [id])
+  fonte      Fonte      @relation(fields: [fonteId], references: [id])
+
+  @@unique([orgaoId, chaveOrigem])
+  @@index([fornecedorId])
+  @@map("contratos")
+}
+
+// ───────────────────────────── TSE ─────────────────────────────
+
+model BemDeclarado {
+  id            Int     @id @default(autoincrement())
+  pessoaId      Int
+  eleicaoAno    Int
+  tipo          String // "Apartamento", "Veículo automotor terrestre"...
+  descricao     String?
+  valorCentavos BigInt
+  fonteId       Int
+  chaveOrigem   String
+
+  pessoa Pessoa @relation(fields: [pessoaId], references: [id])
+  fonte  Fonte  @relation(fields: [fonteId], references: [id])
+
+  @@unique([eleicaoAno, chaveOrigem])
+  @@index([pessoaId, eleicaoAno])
+  @@map("bens_declarados")
+}
+
+model ReceitaCampanha {
+  id              Int       @id @default(autoincrement())
+  pessoaId        Int
+  eleicaoAno      Int
+  doadorNome      String
+  // CNPJ completo; CPF de doador pessoa física armazenado só como hash
+  doadorDocumento String?
+  origem          String? // "Recursos de pessoas físicas", "Fundo Partidário", "FEFC"...
+  data            DateTime? @db.Date
+  valorCentavos   BigInt
+  fonteId         Int
+  chaveOrigem     String
+
+  pessoa Pessoa @relation(fields: [pessoaId], references: [id])
+  fonte  Fonte  @relation(fields: [fonteId], references: [id])
+
+  @@unique([eleicaoAno, chaveOrigem])
+  @@index([pessoaId, eleicaoAno])
+  @@index([doadorDocumento])
+  @@map("receitas_campanha")
+}
+
+// ───────────────────── Finanças e limites legais ─────────────────────
+
+// Bases de cálculo dos limites (SICONFI / TCE-PR), por município e ano
+model FinancaMunicipal {
+  id            Int    @id @default(autoincrement())
+  municipioId   Int
+  ano           Int
+  // "RCL", "RECEITA_TRIBUTARIA_TRANSFERENCIAS", "REPASSE_CAMARA",
+  // "DESPESA_PESSOAL_EXECUTIVO", "DESPESA_PESSOAL_LEGISLATIVO"...
+  indicador     String
+  valorCentavos BigInt
+  fonteId       Int
+
+  municipio Municipio @relation(fields: [municipioId], references: [id])
+  fonte     Fonte     @relation(fields: [fonteId], references: [id])
+
+  @@unique([municipioId, ano, indicador])
+  @@map("financas_municipais")
+}
+
+// Regras configuráveis (CF art. 29, 29-A, LRF art. 20...). Ficam no banco
+// porque mudam com emendas e com a faixa de população.
+model RegraLimite {
+  id             Int       @id @default(autoincrement())
+  codigo         String // "CF_29_VI_SUBSIDIO_VEREADOR"
+  titulo         String
+  baseLegal      String
+  explicacao     String // texto em linguagem simples exibido no app
+  // Ex.: { "faixas": [{ "popMin": 100001, "popMax": 300000, "percentual": 0.5 }] }
+  parametros     Json
+  vigenciaInicio DateTime  @db.Date
+  vigenciaFim    DateTime? @db.Date
+
+  verificacoes VerificacaoLimite[]
+
+  @@unique([codigo, vigenciaInicio])
+  @@map("regras_limite")
+}
+
+// Resultado calculado (snapshot) de cada regra por município/ano
+model VerificacaoLimite {
+  id                   Int            @id @default(autoincrement())
+  municipioId          Int
+  regraId              Int
+  ano                  Int
+  valorApuradoCentavos BigInt?
+  limiteCentavos       BigInt?
+  percentualApurado    Decimal?       @db.Decimal(7, 4)
+  situacao             SituacaoLimite
+  memoriaCalculo       Json // passo a passo exibido em "ver cálculo"
+  calculadoEm          DateTime       @default(now())
+
+  municipio Municipio   @relation(fields: [municipioId], references: [id])
+  regra     RegraLimite @relation(fields: [regraId], references: [id])
+
+  @@unique([municipioId, regraId, ano])
+  @@map("verificacoes_limite")
+}
+
+// ───────────────────────── Proveniência e coleta ─────────────────────────
+
+model Fonte {
+  id          Int       @id @default(autoincrement())
+  tipo        TipoFonte
+  nome        String // "Portal da Transparência – Câmara de Campo Largo (Atende.Net)"
+  url         String
+  coletadoEm  DateTime
+  hashSha256  String?   @db.Char(64)
+  arquivoPath String? // caminho no object storage (S3/MinIO)
+  contentType String?
+  observacao  String?
+  execucaoId  Int?
+
+  execucao     ExecucaoColeta?    @relation(fields: [execucaoId], references: [id])
+  mandatos     Mandato[]
+  funcoesMesa  FuncaoMesa[]
+  remuneracoes Remuneracao[]
+  diarias      Diaria[]
+  despesas     Despesa[]
+  contratos    Contrato[]
+  bens         BemDeclarado[]
+  receitas     ReceitaCampanha[]
+  financas     FinancaMunicipal[]
+
+  @@index([tipo, coletadoEm])
+  @@map("fontes")
+}
+
+model ExecucaoColeta {
+  id                Int            @id @default(autoincrement())
+  coletor           String // "atende-net:remuneracao", "tse:bens"...
+  orgaoId           Int?
+  parametros        Json? // { "ano": 2025, "mes": 3 }
+  status            StatusExecucao @default(EM_ANDAMENTO)
+  iniciadoEm        DateTime       @default(now())
+  finalizadoEm      DateTime?
+  registrosLidos    Int            @default(0)
+  registrosGravados Int            @default(0)
+  erro              String?
+
+  orgao  Orgao?  @relation(fields: [orgaoId], references: [id])
+  fontes Fonte[]
+
+  @@index([coletor, iniciadoEm])
+  @@map("execucoes_coleta")
+}
+
+// "Encontrou um erro?" — enviado pelo público
+model ReporteErro {
+  id          Int           @id @default(autoincrement())
+  entidade    String // "remuneracao", "diaria", "mandato"...
+  entidadeId  Int?
+  pagina      String?
+  mensagem    String
+  contato     String? // e-mail opcional; apagado ao encerrar o reporte (LGPD)
+  status      StatusReporte @default(ABERTO)
+  criadoEm    DateTime      @default(now())
+  resolvidoEm DateTime?
+
+  @@index([status, criadoEm])
+  @@map("reportes_erro")
+}

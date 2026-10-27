@@ -286,8 +286,8 @@ Abre o app ──► Campo Largo já selecionado
        com URL, formato e export de cada item. Depois, a tabela 3.3.
 2. [ ] **Validar os 15 vereadores** no TSE e atualizar a tabela 3.1.
 3. [ ] Achar a **lei de fixação dos subsídios 2025–2028**.
-4. [ ] Definir os **endpoints da API** (contrato OpenAPI) a partir das telas.
-5. [ ] Detalhar o **schema Prisma** a partir do modelo de dados do PLANEJAMENTO.
+4. [x] Definir os **endpoints da API** a partir das telas → [API.md](API.md).
+5. [x] Detalhar o **schema Prisma** → [MODELO-DE-DADOS.md](MODELO-DE-DADOS.md).
 6. [ ] Wireframes das 7 telas.
 7. [ ] Escrever os **termos de uso** e a **política de privacidade** (LGPD).
 8. [ ] Conversar com o **Observatório Social de Campo Largo** sobre parceria.

@@ -1,0 +1,144 @@
+{
+  "_aviso": "DADO SEMENTE NÃO VERIFICADO. Origem: captura de tela de post em rede social. Todos os registros entram com verificacao=NAO_VERIFICADO e não aparecem na API pública até serem conferidos com fonte oficial (TSE, Câmara, folha).",
+  "municipio": {
+    "codigoIbge": "4104204",
+    "nome": "Campo Largo",
+    "uf": "PR",
+    "slug": "campo-largo-pr",
+    "populacao": null,
+    "populacaoAno": null,
+    "ativo": true
+  },
+  "orgaos": [
+    {
+      "tipo": "PREFEITURA",
+      "nome": "Prefeitura Municipal de Campo Largo",
+      "plataforma": "ATENDE_NET",
+      "subdominio": "campolargo",
+      "portalUrl": "https://campolargo.atende.net/transparencia/"
+    },
+    {
+      "tipo": "CAMARA",
+      "nome": "Câmara Municipal de Campo Largo",
+      "plataforma": "ATENDE_NET",
+      "subdominio": "camaracampolargo",
+      "portalUrl": "https://camaracampolargo.atende.net/transparencia/"
+    }
+  ],
+  "fonte": {
+    "tipo": "REDE_SOCIAL",
+    "nome": "Post em rede social (captura de tela enviada pelo idealizador)",
+    "url": "desconhecida",
+    "coletadoEm": "2026-10-27T00:00:00-03:00",
+    "observacao": "Valores sem competência (mês) nem indicação de bruto/líquido."
+  },
+  "legislatura": "2025-2028",
+  "inicioMandato": "2025-01-01",
+  "vereadores": [
+    {
+      "nomeUrna": "Alexandre Guimarães",
+      "slug": "alexandre-guimaraes",
+      "partido": "PDT",
+      "funcaoMesa": "PRESIDENTE",
+      "subsidioInformadoCentavos": 1585918
+    },
+    {
+      "nomeUrna": "André Gabardo",
+      "slug": "andre-gabardo",
+      "partido": "NOVO",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Athos Martinez",
+      "slug": "athos-martinez",
+      "partido": "PL",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Genésio da Vital",
+      "slug": "genesio-da-vital",
+      "partido": "MDB",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Gustavo Torres",
+      "slug": "gustavo-torres",
+      "partido": "REPUBLICANOS",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Júnior Andreassa",
+      "slug": "junior-andreassa",
+      "partido": "PODE",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Luiz Scervenski",
+      "slug": "luiz-scervenski",
+      "partido": "MDB",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Polaco Preto",
+      "slug": "polaco-preto",
+      "partido": "PSD",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Rafael Freitas",
+      "slug": "rafael-freitas",
+      "partido": "UNIÃO",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Rogério das Tintas",
+      "slug": "rogerio-das-tintas",
+      "partido": "PL",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Rogério da Viação",
+      "slug": "rogerio-da-viacao",
+      "partido": "PSD",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Sargento Leandro Chrestani",
+      "slug": "sargento-leandro-chrestani",
+      "partido": "SOLIDARIEDADE",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Sensei Clóvis",
+      "slug": "sensei-clovis",
+      "partido": "PP",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Tomazina",
+      "slug": "tomazina",
+      "partido": "PDT",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    },
+    {
+      "nomeUrna": "Victor Bini",
+      "slug": "victor-bini",
+      "partido": "UNIÃO",
+      "funcaoMesa": null,
+      "subsidioInformadoCentavos": 1185918
+    }
+  ]
+}
