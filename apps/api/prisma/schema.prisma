@@ -179,6 +179,8 @@ model Pessoa {
   slug           String   @unique // "alexandre-guimaraes"
   nomeCivil      String? // vem do TSE
   nomeUrna       String // "Polaco Preto", "Sensei Clóvis"
+  // Nome civil + nome de urna em minúsculas e sem acento, para busca (pg_trgm)
+  nomeBusca      String
   // SHA-256 do CPF + segredo da aplicação (pepper). O CPF nunca é armazenado.
   cpfHash        String?  @unique
   // Sequencial do candidato no TSE (SQ_CANDIDATO), por eleição, ajuda no matching
@@ -189,7 +191,7 @@ model Pessoa {
   bens             BemDeclarado[]
   receitasCampanha ReceitaCampanha[]
 
-  @@index([nomeUrna])
+  @@index([nomeBusca(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("pessoas")
 }
 
@@ -313,11 +315,13 @@ model Fornecedor {
   documento String               @unique
   tipo      TipoPessoaFornecedor
   nome      String
+  // Nome em minúsculas e sem acento, para busca (pg_trgm)
+  nomeBusca String
 
   despesas  Despesa[]
   contratos Contrato[]
 
-  @@index([nome])
+  @@index([nomeBusca(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("fornecedores")
 }
 

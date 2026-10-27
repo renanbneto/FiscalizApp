@@ -1,7 +1,8 @@
 # FiscalizApp — Modelo de Dados
 
 Schema: [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma)
-(Prisma 7, PostgreSQL). Validado com `prisma validate`: 20 tabelas.
+(Prisma 7, PostgreSQL), 20 tabelas. Migration inicial:
+[`apps/api/prisma/migrations/`](../apps/api/prisma/migrations/).
 
 ## Diagrama
 
@@ -113,7 +114,8 @@ Soma de conferência: 15 subsídios = `18188770` centavos = **R$ 181.887,70/mês
 
 ## Próximos passos
 
-- [ ] Script `prisma/seed/index.ts` lendo o JSON
-- [ ] Extensões no primeiro migration: `pg_trgm` e `unaccent` (busca por nome)
-- [ ] Índice GIN trigram em `pessoas.nomeUrna` e `pessoas.nomeCivil`
+- [x] Script `prisma/seed/index.ts` lendo o JSON (idempotente)
+- [x] Extensões no primeiro migration: `pg_trgm` e `unaccent`
+- [x] Coluna `nomeBusca` (minúsculas, sem acento) com índice GIN trigram em `pessoas` e `fornecedores`
+- [x] `CHECK` constraints no migration: mês 1–12, valores ≥ 0 (exceto despesas, que têm estornos), períodos coerentes, formato de código IBGE/CNPJ/hash
 - [ ] Views materializadas para o resumo do município (custo mensal da Câmara)
