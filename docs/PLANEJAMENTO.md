@@ -110,7 +110,7 @@ mapear o que está disponível no município piloto.
 
 ```
                 ┌─────────────────────────────────────────┐
-                │   Coleta (ETL) — Python                 │
+                │   Coleta (ETL) — Node/TS + BullMQ       │
                 │  coletores por fonte: TSE, SICONFI,     │
                 │  PNCP, TCE, scrapers de portal          │
                 └───────────┬─────────────────────────────┘
@@ -119,8 +119,8 @@ mapear o que está disponível no município piloto.
                             ▼
 ┌──────────────┐    ┌───────────────┐    ┌──────────────────┐
 │ Object       │    │ PostgreSQL    │◄───│ API (REST)       │
-│ Storage      │    │ + pg_trgm     │    │ Node/TS ou       │
-│ (arquivos    │    │ (busca)       │    │ Laravel          │
+│ Storage      │    │ + pg_trgm     │    │ NestJS           │
+│ (arquivos    │    │ (busca)       │    │ (Node/TS)        │
 │ brutos)      │    └───────────────┘    └────────┬─────────┘
 └──────────────┘                                  │  + Redis (cache)
                                    ┌──────────────┴──────────────┐
@@ -135,10 +135,9 @@ mapear o que está disponível no município piloto.
 
 | Camada | Recomendação | Por quê |
 |---|---|---|
-| **Coleta / ETL** | **Python** (httpx, pandas/polars, Playwright para portais com JS, Pydantic) | Ecossistema de dados e scraping imbatível |
-| **Orquestração** | Início: GitHub Actions cron. Depois: Prefect ou Dagster | Começar simples, sem servidor extra |
-| **API** | **Node.js + TypeScript (Fastify ou NestJS)** | Compartilha tipos/schemas (Zod) com web e mobile no mesmo monorepo |
-| | *Alternativa:* **Laravel** | Se a equipe for mais produtiva em PHP; Eloquent + API Resources resolvem bem. Perde o compartilhamento de tipos |
+| **Coleta / ETL** | **Node.js + TypeScript** (fetch/undici, cheerio, Playwright, csv-parse, Zod) | ✅ Decidido: uma linguagem só no projeto |
+| **Orquestração** | BullMQ + Redis (jobs agendados) | Equivalente ao Scheduler/Queues do Laravel |
+| **API** | **NestJS (Node.js + TypeScript) + Prisma** | ✅ Decidido: compartilha tipos/schemas (Zod) com web e mobile |
 | **Banco** | PostgreSQL 16 (+ `pg_trgm` para busca por nome) | Relacional, séries temporais simples, JSONB para dado bruto |
 | **Cache** | Redis | Dados mudam no máximo diariamente → cache agressivo |
 | **Web** | **Next.js (React)** | SSR = páginas de político indexáveis no Google e com preview bonito no WhatsApp |
@@ -155,16 +154,13 @@ fiscalizapp/
 ├── apps/
 │   ├── web/              # Next.js
 │   ├── mobile/           # Expo / React Native
-│   └── api/              # Fastify/NestJS (ou Laravel em /api-laravel)
+│   ├── api/              # NestJS + Prisma
+│   └── etl/              # coletores Node/TS (BullMQ)
 ├── packages/
 │   ├── types/            # schemas Zod + tipos TS compartilhados
 │   ├── api-client/       # cliente HTTP + hooks TanStack Query
 │   ├── ui/               # componentes e design tokens
 │   └── config/           # eslint, tsconfig, prettier
-├── etl/                  # Python (uv/poetry)
-│   ├── coletores/        # tse/, siconfi/, pncp/, tce_xx/, portais/<fornecedor>/
-│   ├── normalizacao/
-│   └── tests/            # fixtures com HTML/CSV reais salvos
 ├── infra/                # docker-compose (postgres, redis, minio)
 └── docs/
 ```
@@ -222,7 +218,7 @@ Pontos de atenção:
 
 | Fase | Duração estimada | Entregas |
 |---|---|---|
-| **0 — Descoberta** | 1–2 semanas | Escolher município piloto; inventário das fontes dele (o que tem API, o que precisa de scraping, o que não existe); protótipo das telas (Figma); decisão final Node × Laravel |
+| **0 — Descoberta** | 1–2 semanas | Inventário das fontes de Campo Largo (o que tem API, o que precisa de scraping, o que não existe); protótipo das telas (Figma) |
 | **1 — Fundação** | 2 semanas | Monorepo, docker-compose, schema do banco, CI (lint/test), deploy de staging |
 | **2 — ETL do piloto** | 3–4 semanas | Coletores TSE (eleitos, bens, doações), SICONFI, folha da Câmara e Prefeitura, diárias; tabela `fonte` funcionando |
 | **3 — API + Web MVP** | 3 semanas | Endpoints de município, políticos, remuneração, benefícios, despesas; Next.js com perfil, painel e busca |
@@ -267,7 +263,7 @@ Total até o MVP público: **~3 a 4 meses** com 1–2 desenvolvedores.
 
 ## 10. Decisões em aberto
 
-1. **Qual é o município piloto?** (define quais fontes estaduais/municipais usar)
-2. **API em Node/TypeScript ou Laravel?** (recomendação: Node/TS pelo compartilhamento de tipos com o front)
+1. ~~Qual é o município piloto?~~ → **Campo Largo – PR** (ver [IDEIA.md](IDEIA.md))
+2. ~~API em Node/TypeScript ou Laravel?~~ → **Node.js/TypeScript** (API e ETL)
 3. Modelo de sustentação: projeto open source sem fins lucrativos, parceria com observatório social, doações?
 4. Haverá painel administrativo para curadoria manual dos dados no MVP?
