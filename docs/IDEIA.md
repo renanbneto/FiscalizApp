@@ -106,8 +106,9 @@ real usa a folha oficial e mostra a fonte embaixo.
 | Fonte | O que buscar | Status |
 |---|---|---|
 | **TSE – Dados Abertos (Eleições 2024)** | Eleitos em Campo Largo: nome civil, nome de urna, partido, número, foto, **bens declarados**, **receitas de campanha** | ☐ |
-| **Portal da Transparência da Câmara de Campo Largo** | Folha nominal (subsídios), diárias, verbas, contratos. Identificar o **fornecedor do sistema** do portal (define o tipo de coletor) | ☐ |
-| **Portal da Transparência da Prefeitura de Campo Largo** | Folha do prefeito, vice e secretários; diárias; despesas | ☐ |
+| **Portal da Transparência da Câmara de Campo Largo** — <https://camaracampolargo.atende.net/transparencia/> | Folha nominal (subsídios), diárias, verbas, contratos | 🟡 URL conhecida; sistema **Atende.Net (IPM)** |
+| **Site institucional da Câmara** — <https://www.campolargo.pr.leg.br/> | Composição, mesa diretora, leis, resoluções, sessões | 🟡 URL conhecida |
+| **Portal da Transparência da Prefeitura de Campo Largo** — <https://campolargo.atende.net/transparencia/item/agente-publico> | Agentes públicos (prefeito, vice, secretários), folha, diárias, despesas | 🟡 URL conhecida; sistema **Atende.Net (IPM)** |
 | **TCE-PR – Portal de Dados Abertos / PIT** | Dados que os municípios do PR enviam ao TCE pelo **SIM-AM** (despesas, empenhos, licitações, contratos). Avaliar se tem folha de pessoal | ☐ |
 | **Lei/Resolução de fixação dos subsídios 2025–2028** | Valor oficial do subsídio e da verba de representação do presidente | ☐ |
 | **Diário Oficial do Município** | Nomeações, reajustes, leis. Verificar se Campo Largo está no **Querido Diário** | ☐ |
@@ -118,6 +119,62 @@ real usa a folha oficial e mostra a fonte embaixo.
 
 Se algo não for encontrado, preparar um **pedido via LAI (e-SIC)**. O próprio
 "dado não publicado" vira informação no app.
+
+### 3.4 Portais de Campo Largo: Atende.Net (IPM Sistemas)
+
+A **Prefeitura** (`campolargo.atende.net`) e a **Câmara**
+(`camaracampolargo.atende.net`) usam a mesma plataforma, o **Atende.Net da IPM
+Sistemas**. Isso é ótimo para o projeto:
+
+- **Um único coletor serve os dois órgãos.** Só muda o subdomínio.
+- O Atende.Net é usado por centenas de municípios, principalmente no PR, SC e
+  RS. O mesmo coletor já serve para a **expansão** (Araucária, Balsa Nova,
+  Campo Magro... a confirmar quais usam IPM).
+- Por isso o coletor vira um módulo próprio: `apps/etl/src/coletores/atende-net/`,
+  configurado por município/órgão:
+
+```ts
+// apps/etl/src/coletores/atende-net/orgaos.ts (rascunho)
+export const orgaosAtendeNet = [
+  { municipioIbge: '4104204', orgao: 'prefeitura', subdominio: 'campolargo' },
+  { municipioIbge: '4104204', orgao: 'camara',     subdominio: 'camaracampolargo' },
+];
+```
+
+**Itens do portal a mapear** (o nome exato e a URL de cada um estão pendentes):
+
+| Item no portal | Órgão | Uso no app | URL | Formato / export | Status |
+|---|---|---|---|---|---|
+| Agentes públicos | Prefeitura | Lista de prefeito, vice e secretários | `/transparencia/item/agente-publico` | ? | ☐ |
+| Agentes públicos / vereadores | Câmara | Lista e cargo dos 15 vereadores | ? | ? | ☐ |
+| Folha de pagamento / remuneração | Ambos | Subsídio mensal, bruto × líquido | ? | ? | ☐ |
+| Diárias | Ambos | Aba "Benefícios" | ? | ? | ☐ |
+| Despesas (empenhos/pagamentos) | Ambos | Painel de gastos | ? | ? | ☐ |
+| Contratos e licitações | Ambos | V1 | ? | ? | ☐ |
+| Legislação (lei/resolução de subsídios) | Câmara | Validação dos valores | ? | ? | ☐ |
+
+**Como descobrir os endpoints sem documentação oficial** (passo a passo):
+
+1. Abrir cada item no navegador com o **DevTools → aba Network → filtro Fetch/XHR**.
+2. Aplicar filtros (ano, mês, cargo) e ver quais requisições aparecem
+   (URL, método, parâmetros, se a resposta é JSON ou HTML).
+3. Testar os botões de **exportação** (CSV/XLS/PDF/JSON). Um export
+   estruturado é melhor que raspar a tabela HTML.
+4. Salvar a sessão como **HAR** (botão direito → "Save all as HAR") e uma
+   amostra de cada export em `apps/etl/test/fixtures/atende-net/`. Isso vira
+   teste automatizado do coletor.
+5. Ver o `robots.txt` e os termos de uso do portal. Coletar com calma
+   (1 requisição a cada poucos segundos, User-Agent identificando o projeto
+   com e-mail de contato) e só fora do horário de pico.
+
+**Riscos específicos:**
+
+- Alguns portais Atende.Net carregam dados por JavaScript, o que pode exigir
+  **Playwright** em vez de `fetch` simples.
+- Captcha ou limite de requisições → reduzir a frequência; o dado muda no
+  máximo mensalmente.
+- Mudança de layout pela IPM afeta todos os municípios de uma vez. O
+  monitoramento de "coleta retornou 0 registros" é obrigatório.
 
 ## 4. Verificações automáticas: o diferencial
 
@@ -191,6 +248,7 @@ Abre o app ──► Campo Largo já selecionado
 | 2026-10-27 | **Backend em Node.js + TypeScript** | Mesma linguagem do web (React) e do mobile (React Native); tipos compartilhados |
 | 2026-10-27 | **Coleta de dados (ETL) também em Node/TS** | Projeto com uma linguagem só. Playwright, cheerio e csv-parse cobrem scraping e CSV. Python fica como opção para análises pesadas no futuro |
 | 2026-10-27 | Dado de rede social é **semente**, não fonte | Credibilidade: só publicar dado com fonte oficial |
+| 2026-10-27 | **Primeiro coletor: Atende.Net (IPM)** | Prefeitura e Câmara de Campo Largo usam a mesma plataforma; o coletor é reaproveitável em outros municípios |
 
 ### Stack proposta (Node)
 
@@ -224,8 +282,8 @@ Abre o app ──► Campo Largo já selecionado
 
 ## 9. Próximos passos de planejamento
 
-1. [ ] **Fase 0 / fontes:** preencher a tabela 3.3 com URL, formato e
-       periodicidade de cada fonte de Campo Largo.
+1. [ ] **Fase 0 / fontes:** preencher a tabela 3.4 (itens do Atende.Net)
+       com URL, formato e export de cada item. Depois, a tabela 3.3.
 2. [ ] **Validar os 15 vereadores** no TSE e atualizar a tabela 3.1.
 3. [ ] Achar a **lei de fixação dos subsídios 2025–2028**.
 4. [ ] Definir os **endpoints da API** (contrato OpenAPI) a partir das telas.
