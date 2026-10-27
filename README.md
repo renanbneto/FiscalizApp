@@ -26,7 +26,20 @@ docs/
 
 ## Rodando localmente
 
-Requisitos: Node 22+, pnpm 10 (`corepack enable`) e Docker.
+Requisitos: Node 22+, pnpm 10 e Docker (no Windows: Docker Desktop).
+
+Instalando o pnpm (uma vez só):
+
+```powershell
+node -v                          # precisa ser v22 ou maior
+corepack enable                  # no Windows, rode o PowerShell como Administrador
+# alternativa sem admin:
+npm install -g pnpm@10.28.0
+pnpm -v
+```
+
+Se o PowerShell disser que "a execução de scripts foi desabilitada", rode uma
+vez: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
 ```bash
 pnpm install                       # instala e gera o Prisma Client
@@ -46,4 +59,5 @@ pnpm db:studio                     # opcional: navegar no banco
 | MinIO (API S3) | `http://localhost:9000` (bucket `fontes-brutas`) |
 | MinIO (console) | `http://localhost:9001` |
 
-Para começar do zero: `pnpm infra:down && docker volume rm fiscalizapp_postgres-data`.
+Para começar do zero, rode `pnpm infra:down` e depois
+`docker volume rm fiscalizapp_postgres-data`.
